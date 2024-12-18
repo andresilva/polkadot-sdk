@@ -922,6 +922,11 @@ fn build_bloaty_blob(
 		}
 	}
 
+	// Allow setting a custom location for RUST_SRC_PATH (this is needed for building under nix)
+	if let Ok(rust_src_path) = env::var("RUST_SRC_PATH") {
+		build_cmd.env("RUST_SRC_PATH", rust_src_path);
+	}
+
 	// Inherit jobserver in child cargo command to ensure we don't try to use more concurrency than
 	// available
 	if let Some(c) = get_jobserver() {
