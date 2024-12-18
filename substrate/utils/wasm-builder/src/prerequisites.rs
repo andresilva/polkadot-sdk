@@ -19,7 +19,7 @@ use crate::{write_file_if_changed, CargoCommand, CargoCommandVersioned, RuntimeT
 
 use console::style;
 use std::{
-	fs,
+	env, fs,
 	path::{Path, PathBuf},
 	process::Command,
 };
@@ -201,16 +201,23 @@ fn check_wasm_toolchain_installed(
 
 	let version = dummy_crate.get_rustc_version();
 	if crate::build_std_required() {
-		if let Some(sysroot) = dummy_crate.get_sysroot() {
-			let src_path =
-				Path::new(sysroot.trim()).join("lib").join("rustlib").join("src").join("rust");
-			if !src_path.exists() {
-				let toolchain = dummy_crate.get_toolchain().unwrap_or("<toolchain>".to_string());
-				return Err(colorize_error_message(
-					&format!("Cannot compile the WASM runtime: no standard library sources found at {}!\n\
-					 You can install them with `rustup component add rust-src --toolchain {toolchain}` if you're using `rustup`.", src_path.display()),
-				))
-			}
+		let toolchain = dummy_crate.get_toolchain().unwrap_or("<toolchain>".to_string());
+		let src_path = if let Some(rust_src_path) = env::var_os("RUST_SRC_PATH") {
+			Path::new(&rust_src_path).into()
+		} else if let Some(sysroot) = dummy_crate.get_sysroot() {
+			Path::new(sysroot.trim()).join("lib").join("rustlib").join("src").join("rust")
+		} else {
+			return Err(colorize_error_message(
+				&format!("Cannot compile the WASM runtime: no standard library sources found!\n\
+				 You can install them with `rustup component add rust-src --toolchain {toolchain}` if you're using `rustup`."),
+			))
+		};
+
+		if !src_path.exists() {
+			return Err(colorize_error_message(
+				&format!("Cannot compile the WASM runtime: no standard library sources found at {}!\n\
+				 You can install them with `rustup component add rust-src --toolchain {toolchain}` if you're using `rustup`.", src_path.display()),
+			))
 		}
 	}
 
